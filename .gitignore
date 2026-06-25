@@ -1,0 +1,64 @@
+## Secrets and local configuration
+.env
+.env.*
+!.env.example
+!.env.example.*
+
+## Python virtual environments and caches
+.venv/
+venv/
+env/
+ENV/
+__pypackages__/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.nox/
+.hypothesis/
+*.py[cod]
+*.pyd
+*.py,cover
+.coverage
+.coverage.*
+htmlcov/
+pip-wheel-metadata/
+.ipynb_checkpoints/
+
+## Local databases and application data
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.db-shm
+*.db-wal
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/*.sqlite-journal
+data/*.db-shm
+data/*.db-wal
+data/
+logs/
+backups/
+exports/
+documents/
+documents/exports/
+
+## Build and packaging outputs
+dist/
+build/
+site/
+*.egg-info/
+*.manifest
+*.map
+*.spec
+!packaging/**/*.spec
+
+## IDE / editor settings
+.idea/
+.vscode/
+*.log
+.DS_Store
+Thumbs.db
