@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+import keyring
 
 from basilica_financeiro.paths import AppPaths
 
@@ -48,16 +49,16 @@ def load_settings() -> Settings:
     paths = AppPaths.from_workspace(Path.cwd())
     return Settings(
         app_env=os.getenv("APP_ENV", "development"),
-        secret_key=_required_env("APP_SECRET_KEY"),
+        secret_key=_get_secret("APP_SECRET_KEY"),
         database_url=os.getenv("DATABASE_URL", "sqlite:///data/basilica_financeiro.sqlite3"),
         session_timeout_minutes=int(os.getenv("SESSION_TIMEOUT_MINUTES", "30")),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
-        backup_encryption_key=os.getenv("BACKUP_ENCRYPTION_KEY") or None,
+        backup_encryption_key=_get_secret("BACKUP_ENCRYPTION_KEY", required=False),
         backup_auto_daily=_env_bool("BACKUP_AUTO_DAILY", default=True),
         default_admin_username=os.getenv("DEFAULT_ADMIN_USERNAME", "admin"),
-        default_admin_password=os.getenv("DEFAULT_ADMIN_PASSWORD") or None,
+        default_admin_password=_get_secret("DEFAULT_ADMIN_PASSWORD", required=False),
         asaas_env=os.getenv("ASAAS_ENV", "sandbox"),
-        asaas_api_key=os.getenv("ASAAS_API_KEY") or None,
+        asaas_api_key=_get_secret("ASAAS_API_KEY", required=False),
         asaas_enable_write_operations=_env_bool("ASAAS_ENABLE_WRITE_OPERATIONS", default=False),
         pdv_database_url=os.getenv("PDV_DATABASE_URL") or None,
         google_client_secret_path=os.getenv("GOOGLE_CLIENT_SECRET_PATH") or None,
@@ -71,11 +72,27 @@ def load_settings() -> Settings:
     )
 
 
-def _required_env(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise ValueError(f"{name} precisa estar configurado")
-    return value
+import structlog
+
+logger = structlog.get_logger()
+
+def _get_secret(name: str, *, required: bool = True) -> str | None:
+    key = keyring.get_password("basilica_financeiro", name)
+    if key:
+        return key
+
+    # Fallback temporário — remover após todas as máquinas da secretaria migrarem para keyring.
+    legacy_key = os.getenv(name)
+    if legacy_key:
+        logger.warning(
+            f"{name} lida via variável de ambiente (.env). "
+            "Migre para keyring o quanto antes — este fallback será removido."
+        )
+        return legacy_key
+    
+    if required:
+        raise ValueError(f"{name} precisa estar configurado no keyring")
+    return None
 
 
 def _env_bool(name: str, *, default: bool) -> bool:

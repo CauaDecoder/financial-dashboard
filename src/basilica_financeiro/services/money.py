@@ -18,6 +18,16 @@ def parse_brl_to_cents(value: str) -> int:
     return amount_cents
 
 
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+
+def parse_float_to_cents(value: object) -> int:
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError("Valor monetario invalido (esperado numero ou string numerica)") from exc
+    cents = (amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return int(cents)
+
 def format_brl_cents(value_cents: int) -> str:
     sign = "-" if value_cents < 0 else ""
     absolute = abs(value_cents)

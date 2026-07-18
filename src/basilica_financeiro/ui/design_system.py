@@ -5,35 +5,88 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ColorTokens:
-    background: str = "#F6F5F1"
-    surface: str = "#FFFFFF"
-    surface_alt: str = "#F3F0E8"
-    surface_tint: str = "#FAF8F3"
-    sidebar: str = "#1C1C1A"
-    sidebar_hover: str = "rgba(255,255,255,0.06)"
-    sidebar_text: str = "#D4D2CA"
-    sidebar_muted: str = "#9A9890"
-    sidebar_group: str = "#5A5955"
-    sidebar_active_bg: str = "#C9973A22"
-    gold: str = "#C9973A"
-    gold_soft: str = "#F5E4B8"
-    green: str = "#2F8C57"
-    green_soft: str = "#E7F5EC"
-    red: str = "#C74D42"
-    red_soft: str = "#FBE9E7"
-    blue: str = "#2F77D0"
-    blue_soft: str = "#E8F1FD"
-    amber: str = "#B8871E"
-    amber_soft: str = "#FFF3D9"
-    text: str = "#24231F"
-    text_muted: str = "#6F6B62"
-    text_soft: str = "#908A80"
-    border: str = "#DED6C7"
-    border_strong: str = "#CFC4B3"
-    border_soft: str = "#EAE4D8"
-    danger: str = "#B53A31"
-    neutral_badge: str = "#2F2B26"
-    neutral_badge_soft: str = "#F0EDE7"
+    # Ouro
+    ouro_50: str = "#F6EBD2"
+    ouro_200: str = "#E4C583"
+    ouro_500: str = "#C9973A"
+    ouro_700: str = "#8B6420"
+    ouro_900: str = "#4A3510"
+
+    # Verde
+    verde_50: str = "#DFF0E3"
+    verde_200: str = "#8FCBA0"
+    verde_600: str = "#1F5C3A"
+    verde_800: str = "#174D30"
+    verde_950: str = "#0A2317"
+
+    # Neutros
+    neutro_50: str = "#F7F6F3"
+    neutro_100: str = "#EDEBE6"
+    neutro_300: str = "#C9C6BE"
+    neutro_500: str = "#8B8880"
+    neutro_900: str = "#1A1917"
+
+    # Semânticas
+    sucesso_bg: str = "#EAF3DE"
+    sucesso_texto: str = "#27500A"
+    sucesso_dot: str = "#3B6D1A"
+
+    erro_bg: str = "#FCEBEB"
+    erro_texto: str = "#791F1F"
+    erro_dot: str = "#A32D2D"
+
+    atencao_bg: str = "#FAEEDA"
+    atencao_texto: str = "#633806"
+    atencao_dot: str = "#854F04"
+
+    info_bg: str = "#E6F1FB"
+    info_texto: str = "#0C447C"
+    info_dot: str = "#185FAC"
+
+    sidebar_bg: str = "#1C1C1A"
+
+    @property
+    def background(self) -> str: return self.neutro_50
+
+    @property
+    def surface(self) -> str: return "#FFFFFF"
+
+    @property
+    def surface_tint(self) -> str: return self.neutro_100
+
+    @property
+    def surface_alt(self) -> str: return self.neutro_50
+
+    @property
+    def border(self) -> str: return self.neutro_300
+
+    @property
+    def border_soft(self) -> str: return self.neutro_100
+
+    @property
+    def border_strong(self) -> str: return self.neutro_500
+
+    @property
+    def text(self) -> str: return self.neutro_900
+
+    @property
+    def text_muted(self) -> str: return self.neutro_500
+
+    @property
+    def text_soft(self) -> str: return self.neutro_300
+
+    @property
+    def sidebar(self) -> str: return self.sidebar_bg
+
+    @property
+    def sidebar_group(self) -> str: return self.neutro_500
+
+    @property
+    def gold(self) -> str: return self.ouro_500
+
+    @property
+    def gold_soft(self) -> str: return self.ouro_50
+
 
 
 @dataclass(frozen=True)
@@ -132,21 +185,10 @@ def app_stylesheet() -> str:
         background: {COLORS.background};
     }}
     QWidget#LoginShell {{
-        background: qlineargradient(
-            x1: 0, y1: 0, x2: 1, y2: 1,
-            stop: 0 #0B1F3A,
-            stop: 0.45 #143B63,
-            stop: 0.75 #12385F,
-            stop: 1 #09192D
-        );
+        background: {COLORS.background};
     }}
     QFrame#LoginHero {{
-        background: qlineargradient(
-            x1: 0, y1: 0, x2: 1, y2: 1,
-            stop: 0 #173E66,
-            stop: 0.55 #0F2F55,
-            stop: 1 #091A2E
-        );
+        border-image: url("assets/bg_login.png") 0 0 0 0 stretch stretch;
         border-radius: 28px;
     }}
     QFrame#LoginPanel {{
@@ -238,6 +280,7 @@ def app_stylesheet() -> str:
         font-size: {TYPOGRAPHY.sidebar_group_px}px;
         font-weight: 600;
         letter-spacing: 1.2px;
+        text-transform: uppercase;
     }}
     QLabel#MutedText {{
         color: {COLORS.text_muted};

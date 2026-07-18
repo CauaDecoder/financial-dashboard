@@ -9,6 +9,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from basilica_financeiro.services.money import parse_float_to_cents
+
 
 class AsaasTransport(Protocol):
     def __call__(
@@ -125,7 +127,7 @@ def _urllib_get_json(
 
 def _payment_from_payload(payload: dict[str, Any]) -> AsaasPayment:
     asaas_id = _required_text(payload, "id")
-    value_cents = _decimal_to_cents(payload.get("value"))
+    value_cents = parse_float_to_cents(payload.get("value"))
     net_value_cents = _optional_decimal_to_cents(payload.get("netValue"))
     return AsaasPayment(
         asaas_id=asaas_id,
@@ -160,13 +162,4 @@ def _optional_date(value: object) -> date | None:
 
 
 def _optional_decimal_to_cents(value: object) -> int | None:
-    return None if value is None else _decimal_to_cents(value)
-
-
-def _decimal_to_cents(value: object) -> int:
-    try:
-        amount = Decimal(str(value))
-    except (InvalidOperation, ValueError) as exc:
-        raise ValueError("Valor monetario do Asaas invalido") from exc
-    cents = (amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    return int(cents)
+    return None if value is None else parse_float_to_cents(value)

@@ -28,31 +28,32 @@ from basilica_financeiro.ui.design_system import COLORS, RADIUS, SPACING, TYPOGR
 class BadgePalette:
     fg: str
     bg: str
+    dot: str
 
 
 BADGE_PALETTES: dict[str, BadgePalette] = {
-    "paid": BadgePalette(COLORS.green, COLORS.green_soft),
-    "overdue": BadgePalette(COLORS.red, COLORS.red_soft),
-    "due-soon": BadgePalette(COLORS.amber, COLORS.amber_soft),
-    "open": BadgePalette(COLORS.blue, COLORS.blue_soft),
-    "cancelled": BadgePalette(COLORS.neutral_badge, COLORS.neutral_badge_soft),
-    "income": BadgePalette(COLORS.green, COLORS.green_soft),
-    "expense": BadgePalette(COLORS.red, COLORS.red_soft),
-    "transfer": BadgePalette(COLORS.blue, COLORS.blue_soft),
-    "pending": BadgePalette(COLORS.amber, COLORS.amber_soft),
+    "paid": BadgePalette(COLORS.sucesso_texto, COLORS.sucesso_bg, COLORS.sucesso_dot),
+    "overdue": BadgePalette(COLORS.erro_texto, COLORS.erro_bg, COLORS.erro_dot),
+    "due-soon": BadgePalette(COLORS.atencao_texto, COLORS.atencao_bg, COLORS.atencao_dot),
+    "open": BadgePalette(COLORS.info_texto, COLORS.info_bg, COLORS.info_dot),
+    "cancelled": BadgePalette(COLORS.text_muted, COLORS.neutro_100, COLORS.neutro_300),
+    "income": BadgePalette(COLORS.sucesso_texto, COLORS.sucesso_bg, COLORS.sucesso_dot),
+    "expense": BadgePalette(COLORS.erro_texto, COLORS.erro_bg, COLORS.erro_dot),
+    "transfer": BadgePalette(COLORS.info_texto, COLORS.info_bg, COLORS.info_dot),
+    "pending": BadgePalette(COLORS.atencao_texto, COLORS.atencao_bg, COLORS.atencao_dot),
 }
 
 
 BUTTON_STYLES: dict[str, str] = {
     "primary": (
-        f"QPushButton {{ background: {COLORS.green}; color: {COLORS.surface}; "
-        f"border: 1px solid {COLORS.green}; }}"
-        f"QPushButton:hover {{ background: #267149; border-color: #267149; }}"
+        f"QPushButton {{ background: {COLORS.verde_600}; color: {COLORS.surface}; "
+        f"border: 1px solid {COLORS.verde_600}; }}"
+        f"QPushButton:hover {{ background: {COLORS.verde_800}; border-color: {COLORS.verde_800}; }}"
     ),
     "secondary": (
         f"QPushButton {{ background: {COLORS.surface}; color: {COLORS.text}; "
         f"border: 1px solid {COLORS.border_strong}; }}"
-        f"QPushButton:hover {{ border-color: {COLORS.gold}; color: {COLORS.text}; }}"
+        f"QPushButton:hover {{ border-color: {COLORS.ouro_500}; color: {COLORS.text}; background: {COLORS.neutro_50}; }}"
     ),
     "ghost": (
         f"QPushButton {{ background: transparent; color: {COLORS.text}; "
@@ -60,9 +61,9 @@ BUTTON_STYLES: dict[str, str] = {
         f"QPushButton:hover {{ background: {COLORS.surface_alt}; border-color: {COLORS.border}; }}"
     ),
     "danger": (
-        f"QPushButton {{ background: {COLORS.surface}; color: {COLORS.danger}; "
-        f"border: 1px solid #E7B7B2; }}"
-        f"QPushButton:hover {{ background: {COLORS.red_soft}; border-color: {COLORS.red}; }}"
+        f"QPushButton {{ background: {COLORS.surface}; color: {COLORS.erro_texto}; "
+        f"border: 1px solid {COLORS.erro_bg}; }}"
+        f"QPushButton:hover {{ background: {COLORS.erro_bg}; border-color: {COLORS.erro_dot}; }}"
     ),
     "icon-only": (
         f"QPushButton {{ min-width: 32px; max-width: 32px; min-height: 32px; "
@@ -78,13 +79,13 @@ BUTTON_STYLES: dict[str, str] = {
         f"border: 1px solid {COLORS.border}; border-radius: {RADIUS.pill}px; padding: 8px 16px; }}"
     ),
     "sidebar": (
-        f"QPushButton {{ background: transparent; color: {COLORS.sidebar_text}; "
+        f"QPushButton {{ background: transparent; color: {COLORS.neutro_500}; "
         f"border: 1px solid transparent; border-radius: {RADIUS.sidebar_item}px; "
         f"padding: 10px 12px; text-align: left; }}"
-        f"QPushButton:hover {{ background: {COLORS.sidebar_hover}; color: {COLORS.sidebar_text}; }}"
+        f"QPushButton:hover {{ background: rgba(255, 255, 255, 0.06); color: {COLORS.neutro_100}; }}"
     ),
     "sidebar-active": (
-        f"QPushButton {{ background: {COLORS.sidebar_active_bg}; color: {COLORS.gold}; "
+        f"QPushButton {{ background: {COLORS.ouro_500}22; color: {COLORS.ouro_500}; "
         f"border: 1px solid transparent; border-radius: {RADIUS.sidebar_item}px; "
         f"padding: 10px 12px; text-align: left; font-weight: 500; }}"
     ),
@@ -127,8 +128,9 @@ class BadgeLabel(QLabel):
 
     def set_badge(self, text: str, *, tone: str, show_dot: bool = True) -> None:
         palette = BADGE_PALETTES.get(tone, BADGE_PALETTES["cancelled"])
-        prefix = "* " if show_dot else ""
-        self.setText(f"{prefix}{text}")
+        dot_html = f"<span style='color: {palette.dot}; font-size: 14px;'>●</span>&nbsp;" if show_dot else ""
+        self.setText(f"{dot_html}{text}")
+        self.setTextFormat(Qt.TextFormat.RichText)
         self.setStyleSheet(
             "QLabel {"
             f"color: {palette.fg};"
@@ -150,19 +152,23 @@ class KpiCard(QFrame):
         subtitle: str,
         icon_text: str,
         tone: str = "neutral",
+        variation: str | None = None,
     ) -> None:
         super().__init__()
         self.setObjectName("KpiCard")
         self.setMinimumHeight(148)
+        self.setStyleSheet(
+            f"QFrame#KpiCard {{ background: {COLORS.neutro_100}; border-radius: 10px; border: none; }}"
+        )
         layout = QVBoxLayout(self)
         layout.setContentsMargins(SPACING.px16, SPACING.px16, SPACING.px16, SPACING.px16)
         layout.setSpacing(SPACING.px12)
 
         tone_color = {
-            "positive": COLORS.green,
-            "negative": COLORS.red,
-            "warning": COLORS.amber,
-            "info": COLORS.blue,
+            "positive": COLORS.verde_600,
+            "negative": COLORS.erro_texto,
+            "warning": COLORS.atencao_texto,
+            "info": COLORS.info_texto,
             "neutral": COLORS.text,
         }.get(tone, COLORS.text)
 
@@ -187,19 +193,37 @@ class KpiCard(QFrame):
 
         value_label = QLabel(value)
         value_label.setStyleSheet(
-            f"QLabel {{ color: {tone_color}; font-family: Consolas, 'Cascadia Mono'; "
-            f"font-size: {TYPOGRAPHY.mono_value_px}px; "
+            f"QLabel {{ color: {tone_color}; font-family: Consolas, 'Cascadia Mono', monospace; "
+            f"font-size: 22px; "
             "font-weight: 500; background: transparent; }"
         )
+        
+        bottom_layout = QHBoxLayout()
         subtitle_label = QLabel(subtitle)
         subtitle_label.setStyleSheet(
-            f"QLabel {{ color: {tone_color if tone != 'neutral' else COLORS.text_muted}; "
-            f"font-size: {TYPOGRAPHY.button_px}px; font-weight: 500; background: transparent; }}"
+            f"QLabel {{ color: {COLORS.text_muted}; "
+            f"font-size: {TYPOGRAPHY.caption_px}px; font-weight: 500; background: transparent; }}"
         )
+        bottom_layout.addWidget(subtitle_label)
+        bottom_layout.addStretch(1)
+        
+        if variation:
+            variation_label = QLabel(variation)
+            var_color = COLORS.verde_600 if "+" in variation or "↗" in variation else COLORS.erro_texto
+            if "-" in variation or "↘" in variation:
+                var_color = COLORS.erro_texto
+            elif "0%" in variation or "~" in variation or "=" in variation:
+                var_color = COLORS.text_muted
+                
+            variation_label.setStyleSheet(
+                f"QLabel {{ color: {var_color}; "
+                f"font-size: {TYPOGRAPHY.caption_px}px; font-weight: 600; background: transparent; }}"
+            )
+            bottom_layout.addWidget(variation_label)
 
         layout.addLayout(header)
         layout.addWidget(value_label)
-        layout.addWidget(subtitle_label)
+        layout.addLayout(bottom_layout)
 
 
 class EmptyState(QFrame):
@@ -264,8 +288,8 @@ class FinancialTable(QTableWidget):
             self.styleSheet()
             + (
                 "QTableWidget::item { padding: 12px; border-bottom: 1px solid "
-                f"{COLORS.border}; }}"
-                "QTableWidget::item:selected { background: transparent; }"
+                f"{COLORS.border_soft}; }}"
+                f"QTableWidget::item:selected {{ background: {COLORS.ouro_50}; }}"
             )
         )
 

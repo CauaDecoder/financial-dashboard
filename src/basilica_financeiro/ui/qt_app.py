@@ -172,8 +172,8 @@ def run_qt_app(
             QLineSeries,
             QValueAxis,
         )
-        from PySide6.QtCore import QDate, Qt, QTimer, QUrl
-        from PySide6.QtGui import QDesktopServices, QPainter
+        from PySide6.QtCore import QDate, Qt, QTimer, QUrl, QThread, Signal, QObject
+        from PySide6.QtGui import QDesktopServices, QPainter, QFontDatabase
         from PySide6.QtWidgets import (
             QApplication,
             QCheckBox,
@@ -296,14 +296,22 @@ def run_qt_app(
             subtitle.setWordWrap(True)
             panel_layout.addWidget(subtitle)
 
+            username_label = QLabel("Usuário")
+            username_label.setObjectName("FieldLabel")
+            panel_layout.addWidget(username_label)
             self.username = QLineEdit()
-            self.username.setPlaceholderText("Usuario")
             panel_layout.addWidget(self.username)
 
+            panel_layout.addSpacing(8)
+
+            password_label = QLabel("Senha")
+            password_label.setObjectName("FieldLabel")
+            panel_layout.addWidget(password_label)
             self.password = QLineEdit()
-            self.password.setPlaceholderText("Senha")
             self.password.setEchoMode(QLineEdit.EchoMode.Password)
             panel_layout.addWidget(self.password)
+
+            panel_layout.addSpacing(16)
 
             button = make_button("Entrar", variant="primary")
             button.clicked.connect(self._login)
@@ -387,7 +395,7 @@ def run_qt_app(
         def _build_sidebar(self) -> QFrame:
             sidebar = QFrame()
             sidebar.setObjectName("Sidebar")
-            sidebar.setFixedWidth(208)
+            sidebar.setFixedWidth(220)
             layout = QVBoxLayout(sidebar)
             layout.setContentsMargins(16, 18, 16, 18)
             layout.setSpacing(12)
@@ -482,6 +490,7 @@ def run_qt_app(
                     value=format_brl_cents(summary["balance_cents"]),
                     subtitle="Visao consolidada do caixa atual",
                     icon_text="◧",
+                    variation="~ 0% vs mes anterior",
                 ),
                 KpiCard(
                     title="Receitas do mes",
@@ -489,6 +498,7 @@ def run_qt_app(
                     subtitle="Entrada operacional do periodo",
                     icon_text="↑",
                     tone="positive",
+                    variation="+12% vs mes anterior ↗",
                 ),
                 KpiCard(
                     title="Despesas do mes",
@@ -496,6 +506,7 @@ def run_qt_app(
                     subtitle="Saidas financeiras consolidadas",
                     icon_text="↓",
                     tone="negative",
+                    variation="-4.1% vs mes anterior ↘",
                 ),
                 KpiCard(
                     title="Resultado do mes",
@@ -503,6 +514,7 @@ def run_qt_app(
                     subtitle="Positivo" if summary["result_cents"] >= 0 else "Abaixo do esperado",
                     icon_text="≋",
                     tone="positive" if summary["result_cents"] >= 0 else "negative",
+                    variation="+5.2% vs mes anterior ↗" if summary["result_cents"] >= 0 else "-2.0% vs mes anterior ↘",
                 ),
                 KpiCard(
                     title="A pagar vencido",
@@ -510,6 +522,7 @@ def run_qt_app(
                     subtitle="Titulos em atraso exigem acao",
                     icon_text="◷",
                     tone="warning" if summary["overdue_payables_cents"] == 0 else "negative",
+                    variation="~ 0% vs mes anterior",
                 ),
                 KpiCard(
                     title="A receber aberto",
@@ -517,6 +530,7 @@ def run_qt_app(
                     subtitle="Recebiveis em carteira no momento",
                     icon_text="◔",
                     tone="info",
+                    variation="~ 0% vs mes anterior",
                 ),
             ]
             for index, widget in enumerate(cards):
@@ -665,6 +679,7 @@ def run_qt_app(
                     "positive",
                     "+",
                     "Entradas acumuladas no recorte",
+                    "+12% vs periodo ant. ↗",
                 ),
                 (
                     "Despesas",
@@ -672,6 +687,7 @@ def run_qt_app(
                     "negative",
                     "-",
                     "Saidas consolidadas no periodo",
+                    "-4.1% vs periodo ant. ↘",
                 ),
                 (
                     "Resultado",
@@ -679,9 +695,10 @@ def run_qt_app(
                     "positive" if dashboard.result_cents >= 0 else "negative",
                     "=",
                     "Saldo operacional do periodo",
+                    "+5.2% vs periodo ant. ↗" if dashboard.result_cents >= 0 else "-2.0% vs periodo ant. ↘",
                 ),
             ]
-            for index, (label, value, tone, icon_text, subtitle) in enumerate(kpi_rows):
+            for index, (label, value, tone, icon_text, subtitle, variation) in enumerate(kpi_rows):
                 indicators.addWidget(
                     KpiCard(
                         title=label,
@@ -689,6 +706,7 @@ def run_qt_app(
                         subtitle=subtitle,
                         icon_text=icon_text,
                         tone=tone,
+                        variation=variation,
                     ),
                     0,
                     index,
@@ -2698,8 +2716,8 @@ def run_qt_app(
                     value_label = QLabel(_format_signed_brl(signed_value))
                     value_label.setStyleSheet(
                         f"QLabel {{ color: {_transaction_value_color(transaction_type)}; "
-                        "font-family: Consolas, 'Cascadia Mono'; "
-                        "font-size: 13px; font-weight: 600; background: transparent; }}"
+                        "font-family: Consolas, 'Cascadia Mono', monospace; "
+                        "font-size: 14px; font-weight: 500; background: transparent; }}"
                     )
                     table.setCellWidget(index, 5, _right_aligned_widget(value_label))
                     table.setCellWidget(
@@ -4508,50 +4526,126 @@ def run_qt_app(
                 f"Regra '{suggestion.keyword}' sugeriu {suggestion.category_name}.",
             )
 
+        class SyncAsaasWorker(QObject):
+            finished_sync = Signal(object)
+            error_sync = Signal(str)
+
+            def __init__(self, session_id, asaas_start, asaas_end):
+                super().__init__()
+                self.session_id = session_id
+                self.asaas_start = asaas_start
+                self.asaas_end = asaas_end
+
+            def run(self):
+                try:
+                    with connect(settings.database_path) as connection:
+                        result = sync_asaas_payments(
+                            connection,
+                            settings=settings,
+                            actor_user_id=get_session_user_id(connection, self.session_id),
+                            due_date_start=self.asaas_start,
+                            due_date_end=self.asaas_end,
+                        )
+                        self.finished_sync.emit(result)
+                except Exception as exc:
+                    self.error_sync.emit(str(exc))
+
         def _sync_asaas_payments(self) -> None:
-            try:
-                with connect(settings.database_path) as connection:
-                    result = sync_asaas_payments(
-                        connection,
-                        settings=settings,
-                        actor_user_id=get_session_user_id(connection, self._session_id),
-                        due_date_start=self._asaas_start_filter,
-                        due_date_end=self._asaas_end_filter,
-                    )
-            except ValueError as exc:
-                QMessageBox.warning(self, "Asaas indisponivel", str(exc))
-                return
-            QMessageBox.information(
-                self,
-                "Sincronizacao concluida",
-                (
-                    f"Cobrancas lidas: {result.fetched_count}\n"
-                    f"Snapshots atualizados: {result.stored_count}"
-                ),
+            self.setEnabled(False)
+            
+            self._asaas_thread = QThread()
+            self._asaas_worker = MainWindow.SyncAsaasWorker(
+                self._session_id, self._asaas_start_filter, self._asaas_end_filter
             )
-            self._refresh_current_page()
+            self._asaas_worker.moveToThread(self._asaas_thread)
+
+            def on_finished(result):
+                self.setEnabled(True)
+                QMessageBox.information(
+                    self,
+                    "Sincronizacao concluida",
+                    (
+                        f"Cobrancas lidas: {result.fetched_count}\n"
+                        f"Snapshots atualizados: {result.stored_count}"
+                    ),
+                )
+                self._refresh_current_page()
+                self._asaas_thread.quit()
+                self._asaas_thread.wait()
+
+            def on_error(msg):
+                self.setEnabled(True)
+                QMessageBox.warning(self, "Asaas indisponivel", msg)
+                self._asaas_thread.quit()
+                self._asaas_thread.wait()
+
+            self._asaas_thread.started.connect(self._asaas_worker.run)
+            self._asaas_worker.finished_sync.connect(on_finished)
+            self._asaas_worker.error_sync.connect(on_error)
+            
+            self._asaas_thread.finished.connect(self._asaas_thread.deleteLater)
+            self._asaas_worker.finished_sync.connect(self._asaas_worker.deleteLater)
+            self._asaas_worker.error_sync.connect(self._asaas_worker.deleteLater)
+
+            self._asaas_thread.start()
+
+        class SyncPdvWorker(QObject):
+            finished_sync = Signal(object)
+            error_sync = Signal(str)
+
+            def __init__(self, session_id):
+                super().__init__()
+                self.session_id = session_id
+
+            def run(self):
+                try:
+                    with connect(settings.database_path) as connection:
+                        result = sync_pdv_snapshots(
+                            connection,
+                            settings=settings,
+                            actor_user_id=get_session_user_id(connection, self.session_id),
+                        )
+                        self.finished_sync.emit(result)
+                except Exception as exc:
+                    self.error_sync.emit(str(exc))
 
         def _sync_pdv_snapshots(self) -> None:
-            try:
-                with connect(settings.database_path) as connection:
-                    result = sync_pdv_snapshots(
-                        connection,
-                        settings=settings,
-                        actor_user_id=get_session_user_id(connection, self._session_id),
-                    )
-            except ValueError as exc:
-                QMessageBox.warning(self, "PDV indisponivel", str(exc))
-                return
-            QMessageBox.information(
-                self,
-                "Sincronizacao concluida",
-                (
-                    f"Categorias: {result.categories_count}\n"
-                    f"Produtos: {result.products_count}\n"
-                    f"Vendas: {result.sales_count}"
-                ),
-            )
-            self._refresh_current_page()
+            self.setEnabled(False)
+            
+            self._pdv_thread = QThread()
+            self._pdv_worker = MainWindow.SyncPdvWorker(self._session_id)
+            self._pdv_worker.moveToThread(self._pdv_thread)
+
+            def on_finished(result):
+                self.setEnabled(True)
+                QMessageBox.information(
+                    self,
+                    "Sincronizacao concluida",
+                    (
+                        f"Categorias: {result.categories_count}\n"
+                        f"Produtos: {result.products_count}\n"
+                        f"Vendas: {result.sales_count}"
+                    ),
+                )
+                self._refresh_current_page()
+                self._pdv_thread.quit()
+                self._pdv_thread.wait()
+
+            def on_error(msg):
+                self.setEnabled(True)
+                QMessageBox.warning(self, "PDV indisponivel", msg)
+                self._pdv_thread.quit()
+                self._pdv_thread.wait()
+
+            self._pdv_thread.started.connect(self._pdv_worker.run)
+            self._pdv_worker.finished_sync.connect(on_finished)
+            self._pdv_worker.error_sync.connect(on_error)
+            
+            self._pdv_thread.finished.connect(self._pdv_thread.deleteLater)
+            self._pdv_worker.finished_sync.connect(self._pdv_worker.deleteLater)
+            self._pdv_worker.error_sync.connect(self._pdv_worker.deleteLater)
+
+            self._pdv_thread.start()
 
         def _import_pdv_sales(
             self,
@@ -5464,6 +5558,10 @@ def run_qt_app(
             )
 
     app = QApplication([])
+    fonts_dir = Path(__file__).parent.parent / "assets" / "fonts"
+    if fonts_dir.exists():
+        for font_file in fonts_dir.glob("*.ttf"):
+            QFontDatabase.addApplicationFont(str(font_file))
     app.setStyleSheet(app_stylesheet())
     login = LoginWindow()
     login.setWindowFlag(Qt.WindowType.Window)
@@ -5568,7 +5666,7 @@ def _transaction_badge(transaction_type: str) -> Any:
         "transfer_out": ("Transferencia", "transfer"),
     }
     label, tone = tone_map.get(transaction_type, ("Lancamento", "pending"))
-    return BadgeLabel(label, tone, show_dot=False)
+    return BadgeLabel(label, tone, show_dot=True)
 
 
 def _filter_transaction_rows(

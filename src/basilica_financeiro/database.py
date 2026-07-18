@@ -20,10 +20,34 @@ class ClosingConnection(sqlite3.Connection):
         return False
 
 
-def connect(database_path: Path) -> sqlite3.Connection:
+def connect(database_path: Path, encryption_key: str | None = None) -> sqlite3.Connection:
+    if encryption_key is None:
+        import keyring
+        import os
+        # Usamos APP_SECRET_KEY como chave de criptografia do banco
+        encryption_key = keyring.get_password("basilica_financeiro", "APP_SECRET_KEY") or os.getenv("APP_SECRET_KEY")
+        
     database_path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(database_path, factory=ClosingConnection)
-    connection.row_factory = sqlite3.Row
+    
+    # Tentativa de usar pysqlcipher3 se instalado, caso contrário usa sqlite3 padrão
+    try:
+        from pysqlcipher3 import dbapi2 as db_module
+    except ImportError:
+        db_module = sqlite3
+        
+    connection = db_module.connect(database_path, factory=ClosingConnection)
+    
+    if encryption_key:
+        try:
+            # EXCEÇÃO: O driver SQLite nativo não permite bind parameters (?) para PRAGMA.
+            # Por isso, usamos interpolação, mas capturamos qualquer erro imediatamente 
+            # para evitar que o comando com a chave em texto plano vaze em stack traces.
+            connection.execute(f"PRAGMA key = '{encryption_key}'")
+        except Exception as e:
+            connection.close()
+            raise RuntimeError("Falha ao configurar a criptografia do banco de dados (PRAGMA key).") from None
+            
+    connection.row_factory = db_module.Row
     connection.execute("PRAGMA foreign_keys = ON")
     connection.execute("PRAGMA journal_mode = WAL")
     return connection
